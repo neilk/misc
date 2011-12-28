@@ -1,0 +1,21 @@
+#!/usr/bin/perl -w
+
+use strict;
+
+my ($timeout, @cmd) = @ARGV;
+
+if ( my $childPid = fork() ) {
+  local $SIG{'CHLD'} = sub {
+    exit 0;
+  };
+  local $SIG{'ALRM'} = sub { 
+    kill 9, $childPid;
+    # this is an expected way to exit, so call it success
+    exit 0; 
+  }; 
+  alarm( $timeout );
+  sleep;
+} else {
+  exec @cmd;
+}
+

@@ -1,0 +1,25 @@
+#!/opt/local/bin/perl -w
+
+use strict;
+
+my ($n, $file) = @ARGV;
+
+my @line; 
+
+open my $fh, '<', $file or die $!;
+while (<$fh>) {
+  chomp;
+  if ( ( int rand $. ) <= $n ) {
+    if ( @line < $n ) {
+      push @line, $_;
+    } else {
+      $line[ rand $n ] = $_;
+    }
+  }
+}
+
+close $fh or die $!;
+
+for my $i (@line) {
+  print "$i\n";
+}
