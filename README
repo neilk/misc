@@ -1,6 +1,6 @@
 Misc shell utilities.
 
-* alarm - kills a job after a specified amount of time
+* alarm - kills a shell command after a specified amount of time.
 * commify - stupid perl trick to turn numbers like 12345678 into 12,345,678
 * randline - pick a random line from a file
 * spaces2tabs.pl } useful when moving a script to a project with a different coding standard for whitespace
