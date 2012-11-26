@@ -2,23 +2,18 @@
 
 use strict;
 
-my ($n, $file) = @ARGV;
+my $n = shift;
 unless (defined $n and $n =~ /^\d+$/ and $n != 0) {
   die <<EOUSAGE
-Sample usage: $0 10 /usr/share/dict/words
-Omit file to read from STDIN
+Usage: $0 number file1 [file2...]
 Send SIGUSR1 for in-progress results
 EOUSAGE
-}
-my $fh = *STDIN;
-if (defined $file) {
-  open $fh, '<', $file or die "Can't open $file -- $!";
 }
 $SIG{'USR1'} = \&showResults;
 
 my @line;
 
-while (<$fh>) {
+while (<>) {
   if ((int rand $.) <= $n) {
     if (@line < $n) {
       splice(@line, int rand @line, 0, $_);
