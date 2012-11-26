@@ -1,4 +1,4 @@
-#!/opt/local/bin/perl -w
+#!/usr/bin/env perl -w
 
 use strict;
 
@@ -9,15 +9,14 @@ my @line;
 open my $fh, '<', $file or die $!;
 while (<$fh>) {
   chomp;
-  if ( ( int rand $. ) <= $n ) {
-    if ( @line < $n ) {
+  if ((int rand $.) <= $n) {
+    if (@line < $n) {
       push @line, $_;
     } else {
-      $line[ rand $n ] = $_;
+      $line[rand $n] = $_;
     }
   }
 }
-
 close $fh or die $!;
 
 for my $i (@line) {
