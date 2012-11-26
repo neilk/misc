@@ -4,14 +4,19 @@ use strict;
 
 my ($n, $file) = @ARGV;
 unless (defined $n and $n =~ /^\d+$/) {
-  die "Sample usage: $0 10 /usr/share/dict/words\nOmit file to read from STDIN\n"; 
+  die <<EOUSAGE
+Sample usage: $0 10 /usr/share/dict/words
+Omit file to read from STDIN
+Send SIGUSR1 for in-progress results
+EOUSAGE
 }
 my $fh = *STDIN;
 if (defined $file) {
   open $fh, '<', $file or die "Can't open $file -- $!";
 }
+$SIG{'USR1'} = \&showResults;
 
-my @line; 
+my @line;
 
 while (<$fh>) {
   if ((int rand $.) <= $n) {
@@ -23,6 +28,10 @@ while (<$fh>) {
   }
 }
 
-for my $s (@line) {
-  print $s;
+showResults();
+
+sub showResults { 
+  for my $s (@line) {
+    print $s;
+  } 
 }
