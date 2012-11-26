@@ -3,13 +3,16 @@
 use strict;
 
 my ($n, $file) = @ARGV;
-unless (defined $n and defined $file and $n =~ /^\d+$/ and -e $file) { 
-  die "Sample usage: $0 10 /usr/share/dict/words\n"; 
+unless (defined $n and $n =~ /^\d+$/) {
+  die "Sample usage: $0 10 /usr/share/dict/words\nOmit file to read from STDIN\n"; 
+}
+my $fh = *STDIN;
+if (defined $file) {
+  open $fh, '<', $file or die "Can't open $file -- $!";
 }
 
 my @line; 
 
-open my $fh, '<', $file or die $!;
 while (<$fh>) {
   if ((int rand $.) <= $n) {
     if (@line < $n) {
@@ -19,7 +22,6 @@ while (<$fh>) {
     }
   }
 }
-close $fh or die $!;
 
 for my $s (@line) {
   print $s;
