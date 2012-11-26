@@ -30,7 +30,10 @@ while (<$fh>) {
 
 showResults();
 
-sub showResults { 
+sub showResults {
+  if ($n > $.) {
+    warn "not enough lines in input; wanted $n, got $.\n";
+  }
   for my $s (@line) {
     print $s;
   } 
