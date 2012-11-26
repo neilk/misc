@@ -3,12 +3,14 @@
 use strict;
 
 my ($n, $file) = @ARGV;
+unless (defined $n and defined $file and $n =~ /^\d+$/ and -e $file) { 
+  die "Sample usage: $0 10 /usr/share/dict/words\n"; 
+}
 
 my @line; 
 
 open my $fh, '<', $file or die $!;
 while (<$fh>) {
-  chomp;
   if ((int rand $.) <= $n) {
     if (@line < $n) {
       push @line, $_;
@@ -19,6 +21,6 @@ while (<$fh>) {
 }
 close $fh or die $!;
 
-for my $i (@line) {
-  print "$i\n";
+for my $s (@line) {
+  print $s;
 }
