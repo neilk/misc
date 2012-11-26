@@ -3,7 +3,7 @@
 use strict;
 
 my ($n, $file) = @ARGV;
-unless (defined $n and $n =~ /^\d+$/) {
+unless (defined $n and $n =~ /^\d+$/ and $n != 0) {
   die <<EOUSAGE
 Sample usage: $0 10 /usr/share/dict/words
 Omit file to read from STDIN
@@ -21,7 +21,7 @@ my @line;
 while (<$fh>) {
   if ((int rand $.) <= $n) {
     if (@line < $n) {
-      push @line, $_;
+      splice(@line, int rand @line, 0, $_);
     } else {
       $line[rand $n] = $_;
     }
