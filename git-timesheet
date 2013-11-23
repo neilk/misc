@@ -1,0 +1,2 @@
+#!/bin/sh
+git log --all --since="2013-01-01" --author="neilk" --pretty=format:'%ai,%h,%s' | perl -wlne '@F = split(",", $_); $x = `git diff $F[1]^!`; $count = ($x =~ s/\n//g); $F[3] = $count; print join(",",@F)'
