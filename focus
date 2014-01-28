@@ -1,0 +1,51 @@
+#!/usr/bin/env perl -w
+
+use strict;
+
+use File::Temp qw/tempfile/;
+
+my $hostFileName = "/etc/hosts";
+
+sub usage {
+  die "Usage: $0 [on|off]\n";
+}
+
+if (@ARGV < 1) {
+  usage();
+}
+
+my $op = sub { return @_; };
+
+if ($ARGV[0] eq "on") {
+  $op = sub {
+    my $line = shift;
+    $line =~ s/^#\s*//;
+    return $line;
+  };
+} elsif ($ARGV[0] eq "off") {
+  $op = sub {
+    my $line = shift;
+    if ($line !~ /^#/) {
+      $line = "# $line";
+    }
+    return $line;
+  };
+} else {
+  usage();
+}
+
+my ($outFh, $outFileName) = tempfile();
+
+open my $inFh, "<", $hostFileName or die $!;
+my $focusSection = 0;
+while (my $line = <$inFh>) {
+  if ($line =~ /^#\s*((?:END)?FOCUS)/) {
+    $focusSection = $1 eq "FOCUS";
+  } elsif ($focusSection) {
+    $line = $op->($line);
+  }
+  print $outFh $line;
+}
+
+chmod 0644, $outFileName or die $!;
+rename $outFileName, $hostFileName or die $!;
