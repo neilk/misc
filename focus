@@ -58,25 +58,25 @@ if ($ARGV[0] eq "on") {
 my ($outFh, $outFileName) = tempfile();
 
 open my $inFh, "<", $hostFileName or die $!;
-my $inFocusSection = 0;
-my $printedFocusSection = 0;
+my $isReadingFocusSection = 0;
+my $isFocusSectionPrinted = 0;
 while (my $line = <$inFh>) {
   if ($line =~ /^# FOCUS/) {
     printFocusSection($outFh);
-    $printedFocusSection = 1;
-    $inFocusSection = 1;
+    $isFocusSectionPrinted = 1;
+    $isReadingFocusSection = 1;
     next;
   } 
   if ($line =~ /^# ENDFOCUS/) {
-    $inFocusSection = 0;
+    $isReadingFocusSection = 0;
     next;
   }
-  if (!$inFocusSection) {
+  if (!$isReadingFocusSection) {
     print $outFh $line;
   }
 }
 
-if (!$printedFocusSection) {
+if (!$isFocusSectionPrinted) {
   printFocusSection($outFh);
 }
 
