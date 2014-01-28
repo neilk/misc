@@ -1,35 +1,56 @@
 #!/usr/bin/env perl -w
 
+#
+# This program is meant to help me focus, by blocking timewasting sites in /etc/hosts.
+#
+# If the program is invoked with 'focus on', a section will be added to the /etc/hosts file
+# routing requests for the domains in __DATA__ to localhost.
+#
+# If the program is invoked with 'focus off', that section is removed.
+#
+# The section in /etc/hosts should be apparently updated in place. It should begin with the line "# FOCUS" 
+# and, optionally, end with the line "# ENDFOCUS"
+#
+
 use strict;
 
 use File::Temp qw/tempfile/;
 
 my $hostFileName = "/etc/hosts";
+my $isFocusOn = 1;
 
 sub usage {
   die "Usage: $0 [on|off]\n";
 }
 
+sub printFocusSection {
+  my $outFh = shift;
+  print $outFh "# FOCUS\n";
+  if ($isFocusOn) {
+    while (my $domainSpec = <DATA>) {
+      chomp($domainSpec);
+      for my $subDomain ('', 'www.') {
+        my $domain = $subDomain . $domainSpec;
+        # need to specify it twice; on MacOS X, will wait for the IPv6 lookup to time out
+        for my $ip ('127.0.0.1', 'fe80::1%lo0') {
+          print $outFh "$ip $domain\n";
+        }
+      }
+    }
+  }
+  print $outFh "# ENDFOCUS\n";
+}
+
+
+
 if (@ARGV < 1) {
   usage();
 }
 
-my $op = sub { return @_; };
-
 if ($ARGV[0] eq "on") {
-  $op = sub {
-    my $line = shift;
-    $line =~ s/^#\s*//;
-    return $line;
-  };
+  $isFocusOn = 1;
 } elsif ($ARGV[0] eq "off") {
-  $op = sub {
-    my $line = shift;
-    if ($line !~ /^#/) {
-      $line = "# $line";
-    }
-    return $line;
-  };
+  $isFocusOn = 0;
 } else {
   usage();
 }
@@ -37,15 +58,53 @@ if ($ARGV[0] eq "on") {
 my ($outFh, $outFileName) = tempfile();
 
 open my $inFh, "<", $hostFileName or die $!;
-my $focusSection = 0;
+my $inFocusSection = 0;
+my $printedFocusSection = 0;
 while (my $line = <$inFh>) {
-  if ($line =~ /^#\s*((?:END)?FOCUS)/) {
-    $focusSection = $1 eq "FOCUS";
-  } elsif ($focusSection) {
-    $line = $op->($line);
+  if ($line =~ /^# FOCUS/) {
+    printFocusSection($outFh);
+    $printedFocusSection = 1;
+    $inFocusSection = 1;
+    next;
+  } 
+  if ($line =~ /^# ENDFOCUS/) {
+    $inFocusSection = 0;
+    next;
   }
-  print $outFh $line;
+  if (!$inFocusSection) {
+    print $outFh $line;
+  }
 }
+
+if (!$printedFocusSection) {
+  printFocusSection($outFh);
+}
+
 
 chmod 0644, $outFileName or die $!;
 rename $outFileName, $hostFileName or die $!;
+
+__DATA__
+9gag.com
+cracked.com
+digg.com
+facebook.com
+hulu.com
+imgur.com
+instagram.com
+lifehacker.com
+loseit.com
+netflix.com
+news.ycombinator.com
+nytimes.com
+okcupid.com
+overcomingbias.com
+quora.com
+reddit.com
+theonion.com
+tvtropes.com
+twitter.com
+wired.com
+xkcd.com
+ycombinator.com
+youtube.com
