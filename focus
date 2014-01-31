@@ -6,7 +6,9 @@
 # If the program is invoked with 'focus on', a section will be added to the /etc/hosts file
 # routing requests for the domains in __DATA__ to localhost.
 #
-# If the program is invoked with 'focus off', that section is removed.
+# If the program is invoked with 'focus off', that section will be removed, but it will first
+# wait for 60 seconds.  So there is no instant gratification if you just *have* to post to 
+# Facebook or whatever.
 #
 # The section in /etc/hosts should be apparently updated in place. It should begin with the line "# FOCUS" 
 # and, optionally, end with the line "# ENDFOCUS"
@@ -50,6 +52,7 @@ if (@ARGV < 1) {
 if ($ARGV[0] eq "on") {
   $isFocusOn = 1;
 } elsif ($ARGV[0] eq "off") {
+  sleep(60);
   $isFocusOn = 0;
 } else {
   usage();
@@ -101,6 +104,7 @@ okcupid.com
 overcomingbias.com
 quora.com
 reddit.com
+techcrunch.com
 theonion.com
 tvtropes.com
 twitter.com
