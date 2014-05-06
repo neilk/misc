@@ -19,44 +19,60 @@ use strict;
 use File::Temp qw/tempfile/;
 
 my $hostFileName = "/etc/hosts";
-my $isFocusOn = 1;
 
 sub usage {
   die "Usage: $0 [on|off]\n";
 }
 
+# note, sometimes @$domains = []
 sub printFocusSection {
-  my $outFh = shift;
+  my ($outFh, $domainSpecs) = @_;
   print $outFh "# FOCUS\n";
-  if ($isFocusOn) {
-    while (my $domainSpec = <DATA>) {
-      chomp($domainSpec);
-      for my $subDomain ('', 'www.') {
-        my $domain = $subDomain . $domainSpec;
-        # need to specify it twice; on MacOS X, will wait for the IPv6 lookup to time out
-        for my $ip ('127.0.0.1', 'fe80::1%lo0') {
-          print $outFh "$ip $domain\n";
-        }
+  for my $domainSpec (@$domainSpecs) {
+    for my $subDomain ('', 'www.') {
+      my $domain = $subDomain . $domainSpec;
+      # need to specify it twice; on MacOS X, will wait for the IPv6 lookup to time out
+      for my $ip ('127.0.0.1', 'fe80::1%lo0') {
+        print $outFh "$ip $domain\n";
       }
     }
   }
   print $outFh "# ENDFOCUS\n";
 }
 
+sub getDomainSpecs {
+  my $excludeRegex = shift;
+  my @domainSpecs;
+  while (<DATA>) {
+    if ($excludeRegex) {
+      next if /$excludeRegex/;
+    }
+    chomp;
+    push @domainSpecs, $_;
+  }
+  return \@domainSpecs;
+}
 
 
 if (@ARGV < 1) {
   usage();
 }
 
+my $excludeRegex;
+
 if ($ARGV[0] eq "on") {
-  $isFocusOn = 1;
+  # do nothing. By default, will create entries for all domains, with no exclusions
 } elsif ($ARGV[0] eq "off") {
-  sleep(60);
-  $isFocusOn = 0;
+  if ($ARGV[1]) {
+    $excludeRegex = $ARGV[1];  # exclude only this domain, which means allow these domains
+  } else {
+    $excludeRegex = '.'; # match anything, therefore exclude everything
+  }
 } else {
   usage();
 }
+  
+my $domainSpecs = getDomainSpecs($excludeRegex);
 
 my ($outFh, $outFileName) = tempfile();
 
@@ -65,7 +81,7 @@ my $isReadingFocusSection = 0;
 my $isFocusSectionPrinted = 0;
 while (my $line = <$inFh>) {
   if ($line =~ /^# FOCUS/) {
-    printFocusSection($outFh);
+    printFocusSection($outFh, $domainSpecs);
     $isFocusSectionPrinted = 1;
     $isReadingFocusSection = 1;
     next;
@@ -80,7 +96,7 @@ while (my $line = <$inFh>) {
 }
 
 if (!$isFocusSectionPrinted) {
-  printFocusSection($outFh);
+  printFocusSection($outFh, $domainSpecs);
 }
 
 
