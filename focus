@@ -63,6 +63,8 @@ my $excludeRegex;
 if ($ARGV[0] eq "on") {
   # do nothing. By default, will create entries for all domains, with no exclusions
 } elsif ($ARGV[0] eq "off") {
+  warn "sleeping for 60 seconds...\n";
+  sleep(60);
   if ($ARGV[1]) {
     $excludeRegex = $ARGV[1];  # exclude only this domain, which means allow these domains
   } else {
