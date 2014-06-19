@@ -8,7 +8,8 @@
 #
 # If the program is invoked with 'focus off', that section will be removed, but it will first
 # wait for 60 seconds.  So there is no instant gratification if you just *have* to post to 
-# Facebook or whatever.
+# Facebook or whatever. You can press any key to turn focus back on. After 60 minutes, focus 
+# will automatically go back to on.
 #
 # The section in /etc/hosts should be apparently updated in place. It should begin with the line "# FOCUS" 
 # and, optionally, end with the line "# ENDFOCUS"
@@ -17,6 +18,10 @@
 use strict;
 
 use File::Temp qw/tempfile/;
+use Term::ReadKey;
+
+my $INITIAL_DELAY = 10;
+my $MAX_DISTRACTION_DURATION = 10; # * 60;  # 1 hour
 
 my $hostFileName = "/etc/hosts";
 
@@ -43,6 +48,7 @@ sub printFocusSection {
 sub getDomainSpecs {
   my $excludeRegex = shift;
   my @domainSpecs;
+  my $dataPos = tell DATA; # saved position
   while (<DATA>) {
     if ($excludeRegex) {
       next if /$excludeRegex/;
@@ -50,60 +56,84 @@ sub getDomainSpecs {
     chomp;
     push @domainSpecs, $_;
   }
+  seek DATA, $dataPos, 0; # seek to the beginning so we can read it again
   return \@domainSpecs;
 }
 
+sub rewriteHostsFile {
+  my $excludeRegex = shift;
+
+  my $domainSpecs = getDomainSpecs($excludeRegex);
+
+  my ($outFh, $outFileName) = tempfile();
+
+  open my $inFh, "<", $hostFileName or die $!;
+  my $isReadingFocusSection = 0;
+  my $isFocusSectionPrinted = 0;
+  while (my $line = <$inFh>) {
+    if ($line =~ /^# FOCUS/) {
+      printFocusSection($outFh, $domainSpecs);
+      $isFocusSectionPrinted = 1;
+      $isReadingFocusSection = 1;
+      next;
+    } 
+    if ($line =~ /^# ENDFOCUS/) {
+      $isReadingFocusSection = 0;
+      next;
+    }
+    if (!$isReadingFocusSection) {
+      print $outFh $line;
+    }
+  }
+
+  if (!$isFocusSectionPrinted) {
+    printFocusSection($outFh, $domainSpecs);
+  }
+
+  chmod 0644, $outFileName or die $!;
+  rename $outFileName, $hostFileName or die $!;
+
+}
+
+sub end() {
+  ReadMode 0; # reset tty before exiting
+  exit();
+}
 
 if (@ARGV < 1) {
   usage();
 }
 
-my $excludeRegex;
 
 if ($ARGV[0] eq "on") {
+  rewriteHostsFile(undef);
   # do nothing. By default, will create entries for all domains, with no exclusions
 } elsif ($ARGV[0] eq "off") {
-  warn "sleeping for 60 seconds...\n";
-  sleep(60);
+  warn "sleeping for $INITIAL_DELAY seconds...\n";
+  sleep($INITIAL_DELAY); 
+  my $excludeRegex;
   if ($ARGV[1]) {
     $excludeRegex = $ARGV[1];  # exclude only this domain, which means allow these domains
   } else {
     $excludeRegex = '.'; # match anything, therefore exclude everything
   }
+  rewriteHostsFile($excludeRegex);
+  my $message = sprintf("Press any key to block distraction sites again. Will happen automatically after %d minutes.\n", int($MAX_DISTRACTION_DURATION / 60));
+  warn $message;
+  local $SIG{'ALRM'} = sub { 
+    warn "Focus on again.\n"; 
+    rewriteHostsFile(undef); 
+    end(); 
+  };
+  alarm($MAX_DISTRACTION_DURATION); 
+  ReadMode 4; # turn off control keys
+  1 while (not defined (ReadKey(-1)));
+  rewriteHostsFile(undef);
+  alarm 0;
+  end();
 } else {
   usage();
 }
-  
-my $domainSpecs = getDomainSpecs($excludeRegex);
-
-my ($outFh, $outFileName) = tempfile();
-
-open my $inFh, "<", $hostFileName or die $!;
-my $isReadingFocusSection = 0;
-my $isFocusSectionPrinted = 0;
-while (my $line = <$inFh>) {
-  if ($line =~ /^# FOCUS/) {
-    printFocusSection($outFh, $domainSpecs);
-    $isFocusSectionPrinted = 1;
-    $isReadingFocusSection = 1;
-    next;
-  } 
-  if ($line =~ /^# ENDFOCUS/) {
-    $isReadingFocusSection = 0;
-    next;
-  }
-  if (!$isReadingFocusSection) {
-    print $outFh $line;
-  }
-}
-
-if (!$isFocusSectionPrinted) {
-  printFocusSection($outFh, $domainSpecs);
-}
-
-
-chmod 0644, $outFileName or die $!;
-rename $outFileName, $hostFileName or die $!;
 
 __DATA__
 9gag.com
@@ -115,6 +145,7 @@ imgur.com
 instagram.com
 lifehacker.com
 loseit.com
+medium.com
 netflix.com
 news.ycombinator.com
 nytimes.com
