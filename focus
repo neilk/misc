@@ -127,7 +127,9 @@ if ($ARGV[0] eq "on") {
   };
   alarm($MAX_DISTRACTION_DURATION); 
   ReadMode 4; # turn off control keys
-  1 while (not defined (ReadKey(-1)));
+  while (not defined (ReadKey(-1))) {
+    sleep(1);
+  };
   rewriteHostsFile(undef);
   alarm 0;
   end();
