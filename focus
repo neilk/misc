@@ -26,7 +26,7 @@ my $MAX_DISTRACTION_DURATION = 60 * 60;  # 1 hour
 my $hostFileName = "/etc/hosts";
 
 sub usage {
-  die "Usage: $0 [on|off]\n";
+  die "Usage: $0 [on|off|offquick|movie]\n";
 }
 
 # note, sometimes @$domains = []
@@ -108,9 +108,17 @@ if (@ARGV < 1) {
 if ($ARGV[0] eq "on") {
   rewriteHostsFile(undef);
   # do nothing. By default, will create entries for all domains, with no exclusions
-} elsif ($ARGV[0] eq "off") {
-  warn "sleeping for $INITIAL_DELAY seconds...\n";
-  sleep($INITIAL_DELAY); 
+} elsif ($ARGV[0] eq "off" or $ARGV[0] eq "movie" or $ARGV[0] eq "offquick") {
+  my $duration = $MAX_DISTRACTION_DURATION;
+  my $initialDelay = $INITIAL_DELAY;
+  if ($ARGV[0] eq "movie") {
+    $duration = 60 * 60 * 4;
+  } elsif ($ARGV[0] eq "offquick") {
+    $initialDelay = 0;
+    $duration = 120;
+  }
+  warn "sleeping for $initialDelay seconds...\n";
+  sleep($initialDelay); 
   my $excludeRegex;
   if ($ARGV[1]) {
     $excludeRegex = $ARGV[1];  # exclude only this domain, which means allow these domains
@@ -118,14 +126,14 @@ if ($ARGV[0] eq "on") {
     $excludeRegex = '.'; # match anything, therefore exclude everything
   }
   rewriteHostsFile($excludeRegex);
-  my $message = sprintf("Press any key to block distraction sites again. Will happen automatically after %d minutes.\n", int($MAX_DISTRACTION_DURATION / 60));
+  my $message = sprintf("Press any key to block distraction sites again. Will happen automatically after %d minutes.\n", int($duration / 60));
   warn $message;
   local $SIG{'ALRM'} = sub { 
     warn "Focus on again.\n"; 
     rewriteHostsFile(undef); 
     end(); 
   };
-  alarm($MAX_DISTRACTION_DURATION); 
+  alarm($duration); 
   ReadMode 4; # turn off control keys
   while (not defined (ReadKey(-1))) {
     sleep(1);
