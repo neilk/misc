@@ -18,10 +18,15 @@
 use strict;
 
 use File::Temp qw/tempfile/;
+use POSIX qw/strftime/;
 use Term::ReadKey;
 
 my $INITIAL_DELAY = 60;
 my $MAX_DISTRACTION_DURATION = 60 * 60;  # 1 hour
+my $MAX_DAILY_DISTRACTION_DURATION = 2 * 60 * 60;  # 2 hours
+my $MAX_DAILY_DISTRACTIONS = 4;
+
+my $distractionRecordFile = "$ENV{'HOME'}/.focus";
 
 my $hostFileName = "/etc/hosts";
 
@@ -104,6 +109,32 @@ if (@ARGV < 1) {
   usage();
 }
 
+sub today {
+  return strftime "%Y-%m-%d", localtime;
+}
+
+sub getTodayDistractions {
+  my $today = today();
+  my $count = 0;
+  my $totalDuration = 0;
+  if (-e $distractionRecordFile) {
+    open my $fh, "<", $distractionRecordFile or die $!;
+    while (<$fh>) {
+      my ($date, $duration) = split;
+      if ($date eq $today) {
+        $count++;
+        $totalDuration += $duration;
+      }
+    }
+  }
+  return ($count, $totalDuration);
+}
+
+sub recordDistraction {
+  my ($duration) = @_;
+  open my $fh, ">>", $distractionRecordFile or die $!;
+  print {$fh} today() . "\t" . $duration . "\n";
+}
 
 if ($ARGV[0] eq "on") {
   rewriteHostsFile(undef);
@@ -117,8 +148,25 @@ if ($ARGV[0] eq "on") {
     $initialDelay = 0;
     $duration = 120;
   }
+
+  #
+  # stop from doing it too much
+  #
+  my ($todayDistractions, $todayDistractionDuration) = getTodayDistractions();
+  if ($duration + $todayDistractionDuration > $MAX_DAILY_DISTRACTION_DURATION) {
+    warn "Too much distraction today. Do something off the computer, or something beneficial.\n";
+    exit(0);
+  }
+  if (1 + $todayDistractions > $MAX_DAILY_DISTRACTIONS) {
+    warn "You have done that too much today. Do something off the computer, or something beneficial.\n";
+    exit(0);
+  }
+
+
+  ## Actually do it
   warn "sleeping for $initialDelay seconds...\n";
   sleep($initialDelay); 
+  recordDistraction($duration);
   my $excludeRegex;
   if ($ARGV[1]) {
     $excludeRegex = $ARGV[1];  # exclude only this domain, which means allow these domains
