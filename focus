@@ -31,7 +31,7 @@ my $distractionRecordFile = "$ENV{'HOME'}/.focus";
 my $hostFileName = "/etc/hosts";
 
 sub usage {
-  die "Usage: $0 [on|off|offquick|movie]\n";
+  die "Usage: $0 [on|off|offquick|movie|hangout]\n";
 }
 
 # note, sometimes @$domains = []
@@ -139,7 +139,7 @@ sub recordDistraction {
 if ($ARGV[0] eq "on") {
   rewriteHostsFile(undef);
   # do nothing. By default, will create entries for all domains, with no exclusions
-} elsif ($ARGV[0] eq "off" or $ARGV[0] eq "movie" or $ARGV[0] eq "offquick") {
+} elsif ($ARGV[0] eq "off" or $ARGV[0] eq "movie" or $ARGV[0] eq "offquick" or $ARGV[0] eq "hangout") {
   my $duration = $MAX_DISTRACTION_DURATION;
   my $initialDelay = $INITIAL_DELAY;
   if ($ARGV[0] eq "movie") {
@@ -147,26 +147,31 @@ if ($ARGV[0] eq "on") {
   } elsif ($ARGV[0] eq "offquick") {
     $initialDelay = 0;
     $duration = 120;
+  } elsif ($ARGV[0] eq "hangout") {
+    $initialDelay = 0;
+    $duration = 60 * 60 * 4;
   }
 
   #
   # stop from doing it too much
   #
-  my ($todayDistractions, $todayDistractionDuration) = getTodayDistractions();
-  if ($duration + $todayDistractionDuration > $MAX_DAILY_DISTRACTION_DURATION) {
-    warn "Too much distraction today. Do something off the computer, or something beneficial.\n";
-    exit(0);
-  }
-  if (1 + $todayDistractions > $MAX_DAILY_DISTRACTIONS) {
-    warn "You have done that too much today. Do something off the computer, or something beneficial.\n";
-    exit(0);
+  if ($ARGV[0] ne "hangout") {
+    my ($todayDistractions, $todayDistractionDuration) = getTodayDistractions();
+    if ($duration + $todayDistractionDuration > $MAX_DAILY_DISTRACTION_DURATION) {
+      warn "Too much distraction today. Do something off the computer, or something beneficial.\n";
+      exit(0);
+    }
+    if (1 + $todayDistractions > $MAX_DAILY_DISTRACTIONS) {
+      warn "You have done that too much today. Do something off the computer, or something beneficial.\n";
+      exit(0);
+    }
+    recordDistraction($duration);
   }
 
 
   ## Actually do it
   warn "sleeping for $initialDelay seconds...\n";
   sleep($initialDelay); 
-  recordDistraction($duration);
   my $excludeRegex;
   if ($ARGV[1]) {
     $excludeRegex = $ARGV[1];  # exclude only this domain, which means allow these domains
