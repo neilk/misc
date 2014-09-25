@@ -175,6 +175,8 @@ if ($ARGV[0] eq "on") {
   my $excludeRegex;
   if ($ARGV[1]) {
     $excludeRegex = $ARGV[1];  # exclude only this domain, which means allow these domains
+  } elsif ($ARGV[0] eq 'hangout') {
+    $excludeRegex = 'youtube';
   } else {
     $excludeRegex = '.'; # match anything, therefore exclude everything
   }
