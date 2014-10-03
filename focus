@@ -31,7 +31,7 @@ my $distractionRecordFile = "$ENV{'HOME'}/.focus";
 my $hostFileName = "/etc/hosts";
 
 sub usage {
-  die "Usage: $0 [on|off|offquick|movie|hangout]\n";
+  die "Usage: $0 [on|off|offquick|movie|hangout|comms]\n";
 }
 
 # note, sometimes @$domains = []
@@ -105,10 +105,6 @@ sub end() {
   exit();
 }
 
-if (@ARGV < 1) {
-  usage();
-}
-
 sub today {
   return strftime "%Y-%m-%d", localtime;
 }
@@ -136,10 +132,18 @@ sub recordDistraction {
   print {$fh} today() . "\t" . $duration . "\n";
 }
 
+if (@ARGV < 1) {
+  usage();
+}
+
 if ($ARGV[0] eq "on") {
   rewriteHostsFile(undef);
   # do nothing. By default, will create entries for all domains, with no exclusions
-} elsif ($ARGV[0] eq "off" or $ARGV[0] eq "movie" or $ARGV[0] eq "offquick" or $ARGV[0] eq "hangout") {
+} elsif ($ARGV[0] eq "off" 
+          or $ARGV[0] eq "movie" 
+          or $ARGV[0] eq "offquick" 
+          or $ARGV[0] eq "hangout" 
+          or $ARGV[0] eq "comms") {
   my $duration = $MAX_DISTRACTION_DURATION;
   my $initialDelay = $INITIAL_DELAY;
   if ($ARGV[0] eq "movie") {
@@ -150,12 +154,15 @@ if ($ARGV[0] eq "on") {
   } elsif ($ARGV[0] eq "hangout") {
     $initialDelay = 0;
     $duration = 60 * 60 * 4;
+  } elsif ($ARGV[0] eq "comms") {
+    $initialDelay = 60;
+    $duration = 60 * 60 * 4;
   }
 
   #
   # stop from doing it too much
   #
-  if ($ARGV[0] ne "hangout") {
+  if ($ARGV[0] ne "hangout" and $ARGV[0] ne "comms") {
     my ($todayDistractions, $todayDistractionDuration) = getTodayDistractions();
     if ($duration + $todayDistractionDuration > $MAX_DAILY_DISTRACTION_DURATION) {
       warn "Too much distraction today. Do something off the computer, or something beneficial.\n";
