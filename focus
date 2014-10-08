@@ -25,6 +25,7 @@ my $INITIAL_DELAY = 60;
 my $MAX_DISTRACTION_DURATION = 60 * 60;  # 1 hour
 my $MAX_DAILY_DISTRACTION_DURATION = 2 * 60 * 60;  # 2 hours
 my $MAX_DAILY_DISTRACTIONS = 4;
+my $DEFAULT_RECOMMIT_DELAY = 5 * 60 * 60;
 
 my $distractionRecordFile = "$ENV{'HOME'}/.focus";
 
@@ -102,6 +103,7 @@ sub rewriteHostsFile {
 
 sub end() {
   ReadMode 0; # reset tty before exiting
+  alarm 0; # reset alarm
   exit();
 }
 
@@ -132,37 +134,32 @@ sub recordDistraction {
   print {$fh} today() . "\t" . $duration . "\n";
 }
 
-if (@ARGV < 1) {
-  usage();
-}
-
-if ($ARGV[0] eq "on") {
-  rewriteHostsFile(undef);
-  # do nothing. By default, will create entries for all domains, with no exclusions
-} elsif ($ARGV[0] eq "off" 
-          or $ARGV[0] eq "movie" 
-          or $ARGV[0] eq "offquick" 
-          or $ARGV[0] eq "hangout" 
-          or $ARGV[0] eq "comms") {
+sub configure {
+  my $type = shift;
   my $duration = $MAX_DISTRACTION_DURATION;
   my $initialDelay = $INITIAL_DELAY;
-  if ($ARGV[0] eq "movie") {
+  my $recommitDelay = $DEFAULT_RECOMMIT_DELAY;
+  if ($type eq "movie") {
     $duration = 60 * 60 * 4;
-  } elsif ($ARGV[0] eq "offquick") {
+  } elsif ($type eq "offquick") {
     $initialDelay = 0;
     $duration = 120;
-  } elsif ($ARGV[0] eq "hangout") {
+  } elsif ($type eq "hangout") {
     $initialDelay = 0;
     $duration = 60 * 60 * 4;
-  } elsif ($ARGV[0] eq "comms") {
-    $initialDelay = 60;
+  } elsif ($type eq "comms") {
     $duration = 60 * 60 * 4;
+    $recommitDelay = 60 * 15;
   }
+  return ($duration, $initialDelay, $recommitDelay);
+}
 
-  #
-  # stop from doing it too much
-  #
-  if ($ARGV[0] ne "hangout" and $ARGV[0] ne "comms") {
+#
+# stop from doing it too much
+#
+sub checkIfTooOften {
+  my ($type, $duration) = @_;
+  if ($type ne "hangout" and $type ne "comms") {
     my ($todayDistractions, $todayDistractionDuration) = getTodayDistractions();
     if ($duration + $todayDistractionDuration > $MAX_DAILY_DISTRACTION_DURATION) {
       warn "Too much distraction today. Do something off the computer, or something beneficial.\n";
@@ -172,40 +169,119 @@ if ($ARGV[0] eq "on") {
       warn "You have done that too much today. Do something off the computer, or something beneficial.\n";
       exit(0);
     }
+  }
+}
+
+sub record {
+  my ($type, $duration) = @_;
+  if ($type ne "hangout" and $type ne "comms") {
     recordDistraction($duration);
   }
+}
 
+sub block {
+  warn "Focus on again.\n"; 
+  rewriteHostsFile(undef);
+};
 
+sub blockAndEnd {
+  block();
+  end(); 
+};
+
+# this should be an object now
+sub unblockLoop {
+  my ($type, $domain, $duration, $initialDelay, $recommitDelay) = @_;
   ## Actually do it
   warn "sleeping for $initialDelay seconds...\n";
   sleep($initialDelay); 
+
   my $excludeRegex;
-  if ($ARGV[1]) {
-    $excludeRegex = $ARGV[1];  # exclude only this domain, which means allow these domains
-  } elsif ($ARGV[0] eq 'hangout') {
+  if ($domain) {
+    $excludeRegex = $domain;  # exclude only this domain, which means allow these domains
+  } elsif ($type eq 'hangout') {
     $excludeRegex = 'youtube';
   } else {
     $excludeRegex = '.'; # match anything, therefore exclude everything
   }
-  rewriteHostsFile($excludeRegex);
-  my $message = sprintf("Press any key to block distraction sites again. Will happen automatically after %d minutes.\n", int($duration / 60));
-  warn $message;
-  local $SIG{'ALRM'} = sub { 
-    warn "Focus on again.\n"; 
-    rewriteHostsFile(undef); 
-    end(); 
+
+  my $unblock = sub {
+    warn "Focus off.\n"; 
+    rewriteHostsFile($excludeRegex);
   };
+
+  my $recommit = sub {
+    print "Are you still doing what you intended? (y/N)\n";
+
+    block();
+
+    my $key;
+    while (not defined ($key = ReadKey(-1))) {
+      sleep(1);
+    }
+    if ($key !~ /^y/i) {
+      blockAndEnd();
+    }
+      
+    $unblock->();
+  };
+
+
+  my $message = sprintf(
+    "Press any key to block distraction sites again. Will automatically reblock after %d minutes.",
+    int($duration / 60)
+  );
+  if ($recommitDelay < $duration) {
+    $message .= sprintf(" Will ask to reconfirm every %d minutes.", int($recommitDelay / 60));
+  }
+  $message .= "\n";
+  warn $message;
+
+  $unblock->();
+
+  local $SIG{'ALRM'} = \&blockAndEnd;
   alarm($duration); 
+
   ReadMode 4; # turn off control keys
+  my ($startTime, $recommitTime);
+  $startTime = $recommitTime = time();
   while (not defined (ReadKey(-1))) {
     sleep(1);
-  };
+    if (time() > $recommitTime + $recommitDelay) {
+      $recommit->();
+      $recommitTime = time();
+    }
+  }
+
+  blockAndEnd();
+}
+
+
+if (@ARGV < 1) {
+  usage();
+}
+
+
+my $type = $ARGV[0];
+my $domain = $ARGV[1];
+if ($type eq "on") {
   rewriteHostsFile(undef);
-  alarm 0;
-  end();
+  # do nothing. By default, will create entries for all domains, with no exclusions
+} elsif ($type eq "off" 
+          or $type eq "movie" 
+          or $type eq "offquick" 
+          or $type eq "hangout" 
+          or $type eq "comms") {
+  my ($duration, $initialDelay, $recommitDelay) = configure($type);
+  checkIfTooOften($type, $duration);
+  record($type, $duration);
+  unblockLoop($type, $domain, $duration, $initialDelay, $recommitDelay);
 } else {
   usage();
 }
+
+exit 0;
+
 
 __DATA__
 9gag.com
