@@ -1,0 +1,58 @@
+In the language of your choosing, write a console application called 'backoff' which 
+runs another shell command repeatedly until it succeeds. If the command fails, it waits
+a second before retying, then two seconds, and so on.
+
+For example, imagine we run this command in a directory where there is no file named 'foo'.
+
+  $ backoff cat foo
+  sleeping 1 seconds before retry...
+  sleeping 2 seconds before retry...
+  sleeping 4 seconds before retry...
+  sleeping 8 seconds before retry...
+
+(at this point, we create the file 'foo' with contents "aha!", and a few seconds later...
+
+  aha!
+
+And then the program terminates.
+
+
+
+------
+
+questions:
+
+
+Explain to me something complicated
+ask what's interesting
+
+- map tiling
+- traffic data
+
+
+
+fears
+
+data structures
+
+coding daemons
+- issues when coding a daemon
+  - latency & timeouts
+  - responsiveness
+  - handling 404s, etc.
+  - protocols, data in and out
+  - security
+- forking versus event loops
+- node.js versus other kinds of daemons
+
+
+Can you research things?
+- tell me about an interesting bug you fixed
+
+
+mobile devices
+- 
+
+
+MLM
+- values?
