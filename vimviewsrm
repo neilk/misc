@@ -1,0 +1,22 @@
+#!/usr/bin/perl -w
+
+use strict;
+
+use File::Spec;
+
+my $file = $ARGV[0];
+
+$file = File::Spec->rel2abs($file);
+
+$file =~ s/^$ENV{HOME}/~/;
+
+$file =~ s{/}{=+}g;
+
+$file .= "=";
+
+$file = "$ENV{HOME}/.vimviews/$file";
+
+warn "unlinking $file\n";
+
+unlink $file or die $!;
+

@@ -1,0 +1,184 @@
+#!/bin/bash
+
+adb=`which adb`
+
+# Useful to break up long lines
+join() { local IFS="$1"; shift; echo "$*"; }
+
+# echo to STDERR
+warn () {
+    echo "$0:" "$@" >&2
+}
+
+# exit with message
+die () {
+    rc=$1
+    shift
+    warn "$@"
+    exit $rc
+}
+
+#
+# Given the id of a device connected by USB, get its IP
+# Assumes the device is connected to the internets (by wifi probably) already
+#
+get_ip_from_usb_id() {
+    local id=$1
+    warn "Getting device ip from device $id..."
+    local ip=`$adb -s $id shell ip -f inet addr show wlan0 | tail -1 | awk '{ print $2 }' | sed 's/\/24//'`
+    if [[ -z $ip ]]; then
+        warn "Can't find IP for device $id. Is it connected to wifi?";
+        return 1;
+    fi
+    echo -n "$ip"
+    return 0
+}
+
+#
+# Checks if we have any android device at all
+# Echoes id of first device found to STDOUT.
+#
+check_for_any_android_device() {
+    while read -r line; do
+        if [[ -n "$line" ]]; then
+            local fields=( $line );
+            local id=${fields[0]};
+            if [[ -n "$id" ]]
+            then
+                echo -n "$id"
+                return 0;
+            fi
+        fi
+    done < <($adb devices | grep 'device$')
+    return 1;
+}
+
+#
+# Checks for a particular android device ID to show up
+# Should work for USB (hex id) and TCP (host:port) id
+# Echoes id of first device found to STDOUT.
+#
+check_for_wanted_android_device() {
+    local wantedId=$1
+    while read -r line; do
+        if [[ -n "$line" ]]; then
+            local fields=( $line );
+            local id=${fields[0]};
+            if [[ "$id" == $wantedId ]]
+            then
+                echo -n "$id"
+                return 0;
+            fi
+        fi
+    done < <($adb devices | grep 'device$')
+    return 1;
+}
+
+#
+# Wait for any android device to appear in adb devices
+# Increases timeout (linearly) with each try.
+# Echoes id of first device found to STDOUT.
+#
+wait_for_any_android_device() {
+    warn "REAL DEVICE: waiting for adb to see any attached device."
+    local wait_time=2
+    while [[ $wait_time -le 5 ]]; do
+        sleep $wait_time;
+        local id=$(check_for_any_android_device)
+        if [[ -n $id ]]; then
+            warn "REAL DEVICE Found!";
+            echo -n $id;
+            return 0;
+        fi
+        warn ":( no device found"
+        (( wait_time++ ))
+    done
+    warn "REAL DEVICE __ERROR__: We timed out waiting for the device... this probably won't work."
+    return 1;
+}
+
+#
+# Wait for a particular android device to appear in adb devices
+# Increases timeout (linearly) with each try.
+# Echoes id of first device found to STDOUT.
+#
+wait_for_wanted_android_device() {
+    local wantedId=$1;
+    warn "REAL DEVICE: waiting for adb to see device $wantedId.";
+    local wait_time=0;
+    while [[ $wait_time -le 10 ]]; do
+        sleep $wait_time;
+        local foundId=$(check_for_wanted_android_device $wantedId)
+        if [[ -n $foundId ]]; then
+            warn "REAL DEVICE Found!";
+            echo -n $foundId;
+            return 0;
+        fi
+        warn ":( device $wantedId missing";
+        (( wait_time++ ))
+    done;
+    warn "REAL DEVICE __ERROR__: We timed out waiting for the device... this probably won't work.";
+    return 1;
+}
+
+
+#
+# Switch a USB connected device into TCP mode
+# Echoes host:port id to STDOUT, if successful.
+#
+switch_to_tcpip() {
+    local usb_id=$1
+    local PORT=5555
+
+    local ip=$(get_ip_from_usb_id $usb_id)
+    if [[ -z $ip ]]; then
+        return 1;
+    fi
+    sleep 2;
+
+    dummy=$($adb tcpip $PORT);
+    if [[ $? -eq 0 ]]; then
+        sleep 2;
+        local expected_tcp_id="${ip}:${PORT}";
+        warn "trying to connect to $expected_tcp_id";
+        dummy=$($adb connect $expected_tcp_id)
+        if [[ $? -eq 0 ]]; then
+            sleep 2;
+            local tcp_id=$(wait_for_wanted_android_device $expected_tcp_id);
+            if [[ $? -eq 0 ]]; then
+                warn "*** Connected to $usb_id via TCP at $tcp_id! ***";
+                echo -n $tcp_id
+                return 0;
+            fi
+        fi
+    fi
+
+    return 1;
+}
+
+#
+# Switch first USB device found to TCP.
+# Echoes host:port id to STDOUT, if successful.
+#
+switch_first_usb_device_to_tcpip() {
+    dummy=$($adb usb)
+    usb_id=$(wait_for_any_android_device)
+    if [[ $? -eq 0 ]]; then
+        warn "USB: "$usb_id""
+        tcp_id=$(switch_to_tcpip $usb_id);
+        if [[ $? -eq 0 ]]
+        then
+            echo -n "$tcp_id";
+        fi
+    fi
+}
+
+
+tcp_id=$(switch_first_usb_device_to_tcpip)
+if [[ $? -ne 0 ]]; then
+    warn "Failed. :("
+    dummy=$(adb usb)
+fi
+if [[ $? -eq 0 ]]; then
+    echo $tcp_id
+fi

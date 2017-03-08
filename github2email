@@ -1,0 +1,5 @@
+#!/bin/bash
+while read line; do 
+    curl -s "https://api.github.com/users/${line}" | grep email | awk '{gsub("\"","",$2); gsub("\,","",$2);print $2}'; 
+done;
+

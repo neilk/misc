@@ -1,0 +1,13 @@
+#!/bin/bash
+appdir=$1
+appname=$(basename $1)
+xcodebuild -project $appdir/$appname.xcodeproj -configuration Debug SYMROOT=build
+
+src=$appdir/build/Debug-iphoneos/$appname.app
+target=$PROJECTS/ios-apps/1-original-signed/$appname.app
+cp -r $src $target
+echo "Compiled .app in $target"
+
+zip -r $target.zip $target
+echo "Also created $target.zip"
+

@@ -1,0 +1,4 @@
+#!/bin/bash
+
+git branch -D $*
+git push origin --delete $*

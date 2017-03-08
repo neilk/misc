@@ -1,0 +1,15 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use 5.010;
+use Time::Piece;
+
+my ($date1, $date2) = @ARGV;
+
+my $format = '%Y-%m-%d %H:%M:%S';
+
+my $diff = Time::Piece->strptime($date1, $format)
+         - Time::Piece->strptime($date2, $format);
+
+say $diff;

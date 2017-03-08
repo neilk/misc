@@ -1,0 +1,2 @@
+#!/bin/bash
+/usr/libexec/PlistBuddy -x -c "print" $1
