@@ -1,0 +1,27 @@
+#!/bin/bash 
+
+# Find dependency changes in a branch in a scala project using sbt.
+# You have to have the https://github.com/jrudolph/sbt-dependency-graph plugin installed.
+
+# the standard `sed` on Mac OS X won't work, so make sure to install GNU sed via brew.
+
+
+branch="$1"
+
+git checkout master
+sbt dependencyList > /tmp/deps-master
+
+git checkout "$branch"  # your branch
+sbt dependencyList > /tmp/deps-branch
+
+# sbt outputs ANSI colors, always. Strip them away 
+gsed -r "s/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[mGK]//g" /tmp/deps-master > /tmp/deps-master-plain
+gsed -r "s/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[mGK]//g" /tmp/deps-branch > /tmp/deps-branch-plain
+
+# get just the package names
+perl -wlne '/([\w-]+(\.[\w-]+)*:)+\d+(\.\d+)+/ and print $&' /tmp/deps-master-plain | sort | uniq > /tmp/deps-master-plain-uniq
+perl -wlne '/([\w-]+(\.[\w-]+)*:)+\d+(\.\d+)+/ and print $&' /tmp/deps-branch-plain | sort | uniq > /tmp/deps-branch-plain-uniq
+
+# and diff them
+diff /tmp/deps-{master,branch}-plain-uniq
+
