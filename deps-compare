@@ -8,6 +8,17 @@
 
 branch="$1"
 
+
+function is_git_clean() {
+  [[ $(git status 2> /dev/null | tail -n1) =~ "nothing to commit" ]]
+}
+
+if ! is_git_clean; then
+    echo "your git repo has changes. Commit them first";
+    exit 1;
+fi
+
+
 git checkout master
 sbt dependencyList > /tmp/deps-master
 
